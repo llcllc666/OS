@@ -11,7 +11,6 @@
 #include "kernel/stat.h"
 #include "kernel/riscv.h"
 #include "user/user.h"
-#include "syscall.h"
 
 void test0();
 void test1();
