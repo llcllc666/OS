@@ -11,6 +11,7 @@
 #include "kernel/stat.h"
 #include "kernel/riscv.h"
 #include "user/user.h"
+#include "syscall.h"
 
 void test0();
 void test1();
@@ -28,6 +29,14 @@ main(int argc, char *argv[])
 }
 
 volatile static int count;
+
+__attribute__((section(".text.catcher")))
+void
+catchNullPC() 
+{
+  printf("Error: Code at address 0x0 was executed. Make sure you are setting the 'epc' register correctly before returning to user space!\n");
+  exit(1);
+}
 
 void
 periodic()

@@ -107,6 +107,10 @@ $U/_forktest: $U/forktest.o $(ULIB)
 	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_forktest $U/forktest.o $U/ulib.o $U/usys.o $U/umalloc.o
 	$(OBJDUMP) -S $U/_forktest > $U/forktest.asm
 
+$U/_alarmtest: $U/alarmtest.o $(ULIB)
+	$(LD) $(LDFLAGS) -N -e main -T $U/alarmtest.ld -o $@ $^
+	$(OBJDUMP) -S $U/_alarmtest > $U/alarmtest.asm
+
 # $U/_uthread: $U/uthread.o $U/uthread_switch.o $(ULIB)
 # 	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_uthread $U/uthread.o $U/uthread_switch.o $(ULIB)
 # 	$(OBJDUMP) -S $U/_uthread > $U/uthread.asm
