@@ -2,6 +2,7 @@
 
 import re
 import sys
+import os
 from gradelib import *
 
 r = Runner(save("xv6.out"))
@@ -20,6 +21,11 @@ PTE_PRINT = """page table 0x0000000087f6e000
 VAL_RE = "(0x00000000[0-9a-f]+)"
 INDENT_RE = r"\s*\.\.\s*"
 INDENT_ESC = "\\\s*\.\.\\\s*"
+
+def remakeFSImage():
+    if os.path.exists("fs.img"):
+        os.remove("fs.img")
+    make("fs.img")
 
 @test(0, "running lazytests")
 def test_lazytests():
@@ -52,46 +58,47 @@ def test_filetest():
 def test_memtest():
     r.match("test lazy alloc: OK$")
 
-@test(0, "usertests")
-def test_usertests():
+def usertest_check(testcase, nextcase):
+    remakeFSImage()
+    r.run_qemu(shell_script([
+        'usertests {}'.format(testcase)
+    ]), timeout=30)
+    r.match('^ALL TESTS PASSED$')
+
+@test(4, "usertests: pgbug")
+def test_pgbug():
+    usertest_check("pgbug", "sbrkbugs")
+
+@test(4, "usertests: sbrkbugs")
+def test_sbrkbugs():
+    usertest_check("sbrkbugs", "badarg")
+
+@test(4, "usertests: argptest")
+def test_argptest():
+    usertest_check("argptest", "createdelete")
+
+@test(4, "usertests: sbrkmuch")
+def test_sbrkmuch():
+    usertest_check("sbrkmuch", "kernmem")
+
+@test(4, "usertests: sbrkfail")
+def test_sbrkfail():
+    usertest_check("sbrkfail", "sbrkarg")
+
+@test(5, "usertests: sbrkarg")
+def test_sbrkarg():
+    usertest_check("sbrkarg", "validatetest")
+
+@test(5, "usertests: stacktest")
+def test_stacktest():
+    usertest_check("stacktest", "opentest")
+
+@test(20, "usertests: all tests")
+def test_usertests_all():
+    remakeFSImage()
     r.run_qemu(shell_script([
         'usertests'
     ]), timeout=300)
-
-def usertest_check(testcase, nextcase, output):
-    if not re.search(r'\ntest {}: [\s\S]*OK\ntest {}'.format(testcase, nextcase), output):
-        raise AssertionError('Failed ' + testcase)
-
-@test(4, "usertests: pgbug", parent=test_usertests)
-def test_pgbug():
-    usertest_check("pgbug", "sbrkbugs", r.qemu.output)
-
-@test(4, "usertests: sbrkbugs", parent=test_usertests)
-def test_sbrkbugs():
-    usertest_check("sbrkbugs", "badarg", r.qemu.output)
-
-@test(4, "usertests: argptest", parent=test_usertests)
-def test_argptest():
-    usertest_check("argptest", "createdelete", r.qemu.output)
-
-@test(4, "usertests: sbrkmuch", parent=test_usertests)
-def test_sbrkmuch():
-    usertest_check("sbrkmuch", "kernmem", r.qemu.output)
-
-@test(4, "usertests: sbrkfail", parent=test_usertests)
-def test_sbrkfail():
-    usertest_check("sbrkfail", "sbrkarg", r.qemu.output)
-
-@test(5, "usertests: sbrkarg", parent=test_usertests)
-def test_sbrkarg():
-    usertest_check("sbrkarg", "validatetest", r.qemu.output)
-
-@test(5, "usertests: stacktest", parent=test_usertests)
-def test_stacktest():
-    usertest_check("stacktest", "opentest", r.qemu.output)
-
-@test(20, "usertests: all tests", parent=test_usertests)
-def test_usertests_all():
     r.match('^ALL TESTS PASSED$')
 
 if __name__ == '__main__':
