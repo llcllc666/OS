@@ -379,7 +379,64 @@ bmap(struct inode *ip, uint bn)
 {
   uint addr, *a;
   struct buf *bp;
+  
+  // extent based logic from here!
+  int i=0; // we define here since we later need to use i
+  uint current_bn = bn; 
+  if (ip->type == T_EXTENT){
+    // here we search through existing extents
+    for(i = 0; i < NDIRECT; i++){
+      uint entry = ip->addrs[i];
+      if(entry == 0) {
+        // if entry empty we go to allocation directly
+        break; 
+      }
+      // now for non-empty addr[], we extract information
+      uint ex_addr = EXTENT_ADDR(entry);
+      uint ex_len  = EXTENT_LEN(entry);
+      
+      // Is the required block inside the current extent?
+      if(current_bn < ex_len){
+        return ex_addr + current_bn;
+      }
+      // the block might be in the next extent 
+      current_bn -= ex_len;
+    }
+    
+    // here we start allocation if we are unable to find in existing extents
+    // here handle if it execeeds limit
+    if(i == NDIRECT)
+      panic("extent-based bmap: file too large (out of extents)");
 
+    // here we allocate by calling balloc
+    addr = balloc(ip->dev);
+
+    if(addr == 0){
+      // disk full now 
+      return 0;} 
+    // here we consider the problem of merging 
+    int has_merged =0;
+    if(i>0){
+      uint prev_entry = ip->addrs[i-1];
+      uint prev_addr  = EXTENT_ADDR(prev_entry);
+      uint prev_len   = EXTENT_LEN(prev_entry);
+      if(prev_len < 255 && (prev_addr + prev_len) == addr){
+        // merge if last extent has length < 255
+        ip->addrs[i-1] = PACK_EXTENT(prev_addr, prev_len + 1);
+        has_merged = 1;
+      }
+    }
+    // here, it seems that we cannot merge, so create a new extent
+    if(!has_merged){
+      //printf("bmap: creating new extent at index %d, block %d\n", i, addr);
+      ip->addrs[i] = PACK_EXTENT(addr, 1);
+    }else{
+      //printf("bmap: merging extent at index %d, new len %d\n", i-1, EXTENT_LEN(ip->addrs[i-1]));
+    }
+    return addr;
+  }
+
+  // original pointer-based is here. 
   if(bn < NDIRECT){
     if((addr = ip->addrs[bn]) == 0)
       ip->addrs[bn] = addr = balloc(ip->dev);
@@ -401,7 +458,7 @@ bmap(struct inode *ip, uint bn)
     return addr;
   }
 
-  panic("bmap: out of range");
+  panic("pointer based bmap: out of range");
 }
 
 // Truncate inode (discard contents).
@@ -413,25 +470,42 @@ itrunc(struct inode *ip)
   struct buf *bp;
   uint *a;
 
-  for(i = 0; i < NDIRECT; i++){
-    if(ip->addrs[i]){
-      bfree(ip->dev, ip->addrs[i]);
-      ip->addrs[i] = 0;
+  if(ip->type == T_EXTENT){
+    // extent-based file 
+    for(i = 0; i < NDIRECT; i++){
+      if(ip->addrs[i]){
+        uint addr = EXTENT_ADDR(ip->addrs[i]);
+        uint len  = EXTENT_LEN(ip->addrs[i]);
+        
+        // Free every block in the range
+        for(j = 0; j < len; j++){
+          bfree(ip->dev, addr + j);
+        }
+        ip->addrs[i] = 0;
+      }
     }
   }
-
-  if(ip->addrs[NDIRECT]){
-    bp = bread(ip->dev, ip->addrs[NDIRECT]);
-    a = (uint*)bp->data;
-    for(j = 0; j < NINDIRECT; j++){
-      if(a[j])
-        bfree(ip->dev, a[j]);
+  else{
+    // original point based here
+    for(i = 0; i < NDIRECT; i++){
+      if(ip->addrs[i]){
+        bfree(ip->dev, ip->addrs[i]);
+        ip->addrs[i] = 0;
+      }
     }
-    brelse(bp);
-    bfree(ip->dev, ip->addrs[NDIRECT]);
-    ip->addrs[NDIRECT] = 0;
-  }
 
+    if(ip->addrs[NDIRECT]){
+      bp = bread(ip->dev, ip->addrs[NDIRECT]);
+      a = (uint*)bp->data;
+      for(j = 0; j < NINDIRECT; j++){
+        if(a[j])
+          bfree(ip->dev, a[j]);
+      }
+      brelse(bp);
+      bfree(ip->dev, ip->addrs[NDIRECT]);
+      ip->addrs[NDIRECT] = 0;
+    }
+  }
   ip->size = 0;
   iupdate(ip);
 }
@@ -445,7 +519,17 @@ stati(struct inode *ip, struct stat *st)
   st->ino = ip->inum;
   st->type = ip->type;
   st->nlink = ip->nlink;
-  st->size = ip->size;
+  st->size = ip->size; 
+
+  // extent based
+  // === ADD THIS DEBUG LOOP ===
+  if(ip->type == 4) { // T_EXTENT
+      printf("DEBUG stati: inode %d size %d\n", ip->inum, ip->size);
+      printf("DEBUG stati: addrs[0] = %x\n", ip->addrs[0]);
+  }
+  // ===========================
+
+  memmove(st->addrs, ip->addrs, sizeof(ip->addrs));
 }
 
 // Read data from inode.

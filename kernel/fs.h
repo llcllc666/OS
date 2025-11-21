@@ -25,8 +25,10 @@ struct superblock {
 #define FSMAGIC 0x10203040
 
 #define NDIRECT 12
+
 #define NINDIRECT (BSIZE / sizeof(uint))
 #define MAXFILE (NDIRECT + NINDIRECT)
+
 
 // On-disk inode structure
 struct dinode {
@@ -38,6 +40,7 @@ struct dinode {
   uint addrs[NDIRECT+1];   // Data block addresses
 };
 
+ 
 // Inodes per block.
 #define IPB           (BSIZE / sizeof(struct dinode))
 
@@ -57,4 +60,15 @@ struct dirent {
   ushort inum;
   char name[DIRSIZ];
 };
+
+// help function for extent-based file system
+
+#define ADDR_MASK  0xFFFFFF00 
+#define LEN_MASK   0x000000FF 
+
+#define EXTENT_ADDR(x)  ((x) >> 8)
+
+#define EXTENT_LEN(x)   ((x) & LEN_MASK)
+
+#define PACK_EXTENT(addr, len)  (((addr) << 8) | ((len) & LEN_MASK))
 
