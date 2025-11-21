@@ -151,6 +151,10 @@ UPROGS=\
 	$U/_stat\
 	$U/_bigfile_test\
 	$U/_inline_test\
+	$U/_mkfile\
+	$U/_bench\
+	$U/_bench_threshold\
+	$U/_bench_space\
 	# $U/_threadtest\
 	# $U/_symlinktest\
 	# $U/_largefiletest\
