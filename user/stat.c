@@ -34,10 +34,21 @@ main(int argc, char *argv[])
       
       printf("Slot %d: Start Block %d, Length %d\n", i, addr, len);
     }
-  } else {
-    printf("--- Standard Blocks ---\n");
-    // Optional: print standard blocks for T_FILE
+  } else if(st.type == T_INLINE) { // Type 5
+     printf("Type: Inline File\n");
+     printf("Size: %l\n", st.size);
+     
+     // Print the data directly since it's small
+     printf("Data Content: \"");
+     char *data = (char*)st.addrs;
+     for(int i=0; i<st.size; i++) {
+         printf("%c", data[i]);
+     }
+     printf("\"\n");
   }
-
+  else {
+     printf("--- Standard Blocks ---\n");
+  }
+  
   exit(0);
 }

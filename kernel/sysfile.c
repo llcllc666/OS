@@ -298,7 +298,9 @@ sys_open(void)
   begin_op();
 
   if(omode & O_CREATE){
-    int type = (omode & O_EXTENT) ? T_EXTENT : T_FILE;
+    int type = (omode & O_EXTENT) ? T_EXTENT :
+           (omode & O_INLINE) ? T_INLINE :
+                                T_FILE;
 
     ip = create(path, type, 0, 0);
     if(ip == 0){
@@ -344,8 +346,8 @@ sys_open(void)
   f->readable = !(omode & O_WRONLY);
   f->writable = (omode & O_WRONLY) || (omode & O_RDWR);
 
-  if((omode & O_TRUNC) && ip->type == T_FILE){
-    itrunc(ip);
+  if((omode & O_TRUNC) && (ip->type == T_FILE || ip->type == T_EXTENT || ip->type == T_INLINE)){
+  itrunc(ip);
   }
 
   iunlock(ip);

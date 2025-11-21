@@ -2,6 +2,7 @@
 #define T_FILE    2   // File
 #define T_DEVICE  3   // Device
 #define T_EXTENT  4   // Extent-based File 
+#define T_INLINE  5   // in-inode file
 
 #define NDIRECT 12
 

@@ -150,6 +150,7 @@ UPROGS=\
 	$U/_umalloc\
 	$U/_stat\
 	$U/_bigfile_test\
+	$U/_inline_test\
 	# $U/_threadtest\
 	# $U/_symlinktest\
 	# $U/_largefiletest\

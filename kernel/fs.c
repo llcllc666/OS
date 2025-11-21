@@ -469,6 +469,15 @@ itrunc(struct inode *ip)
   int i, j;
   struct buf *bp;
   uint *a;
+  // printf("DEBUG: itrunc called for inode %d, type %d\n", ip->inum, ip->type);
+  // HANDLE IN_INODE file here
+  if(ip->type == T_INLINE) {
+    memset(ip->addrs, 0, sizeof(ip->addrs)); 
+    ip->size = 0;
+    iupdate(ip);
+    return; 
+  }
+  // end of in-inode file
 
   if(ip->type == T_EXTENT){
     // extent-based file 
@@ -547,6 +556,16 @@ readi(struct inode *ip, int user_dst, uint64 dst, uint off, uint n)
   if(off + n > ip->size)
     n = ip->size - off;
 
+  // for In-inode file, we don't need to read from the disk !
+  if(ip->type == T_INLINE) {
+    // data in array is stored continuously 
+    char *inline_data = (char*)ip->addrs;
+    if(either_copyout(user_dst, dst, inline_data + off, n) == -1)
+      return -1;
+    return n; // Return number of bytes read
+  }
+  // stop here
+
   for(tot=0; tot<n; tot+=m, off+=m, dst+=m){
     bp = bread(ip->dev, bmap(ip, off/BSIZE));
     m = min(n - tot, BSIZE - off%BSIZE);
@@ -577,6 +596,29 @@ writei(struct inode *ip, int user_src, uint64 src, uint off, uint n)
     return -1;
   if(off + n > MAXFILE*BSIZE)
     return -1;
+
+  // === 2. HANDLE INLINE FILES ===
+  if(ip->type == T_INLINE) {
+   
+    uint max_inline_size = sizeof(ip->addrs); 
+
+    if(off + n > max_inline_size) {
+      // size check 
+        return -1; 
+    }
+    char *inline_data = (char*)ip->addrs;
+    if(either_copyin(inline_data + off, user_src, src, n) == -1)
+      return -1;
+
+    // Update file size
+    if(off + n > ip->size)
+      ip->size = off + n;
+
+    iupdate(ip);
+    
+    return n;
+  }
+  // stop here 
 
   for(tot=0; tot<n; tot+=m, off+=m, src+=m){
     bp = bread(ip->dev, bmap(ip, off/BSIZE));
